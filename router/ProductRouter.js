@@ -7,17 +7,9 @@ const mongoose = require("mongoose");
 const router = express.Router();
 
 router.get("/getall", authenticate, ProductController.getAllProducts);
-router.get(
-  "/getone/:product_id",
-  authenticate,
-  ProductController.getProductById,
-);
+router.get("/getone/:product_id",authenticate,ProductController.getProductById,);
 router.post("/create", authenticate, ProductController.createProduct);
-router.delete(
-  "/delete/:product_id",
-  authenticate,
-  ProductController.deleteProduct,
-);
+router.delete("/delete/:product_id",authenticate,ProductController.deleteProduct,);
 router.put("/update", authenticate, ProductController.updateProduct);
 // endpoint to get products by category
 router.get("/productsbycategory/:categoryId", async (req, res) => {

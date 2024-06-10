@@ -1,38 +1,44 @@
-let jwt = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const AuthenticationService = require("../service/AuthenticationService");
+
 const login = async (request, response) => {
   try {
-    if (request.body.email && request.body.password) {
-      const user = await User.findOne({ email: request.body.email });
+    const { email, password } = request.body;
+    if (email && password) {
+      const user = await User.findOne({ email });
       if (!user) {
-        response.status(400).json({
+        return response.status(400).json({
           errorType: "no-user-found",
-          errorMessage:
-            "Det gick inte att hitta en användare med det användarnamnet",
+          errorMessage: "Det gick inte att hitta en användare med det användarnamnet",
         });
-      } else if (user.password !== request.body.password) {
-        response.status(400).json({
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return response.status(400).json({
           errorType: "incorrect-password",
           errorMessage: "Felaktigt lösenord",
         });
-      } else {
-        const token = jwt.sign(
-          { uid: user.email },
-          AuthenticationService.getJwtSecret(),
-        );
-        return response.status(200).json({
-          success: true,
-          message: "Authentication successful!",
-          tid: token,
-          uid: user.email,
-          user: user,
-          firstName: user.firstname,
-          lastName: user.lastname,
-          _userId: user._id,
-          role: user.role,
-        });
       }
+
+      const token = jwt.sign(
+        { uid: user.email },
+        AuthenticationService.getJwtSecret(),
+        { expiresIn: '30d' }
+      );
+      return response.status(200).json({
+        success: true,
+        message: "Authentication successful!",
+        tid: token,
+        uid: user.email,
+        user: user,
+        firstName: user.firstname,
+        lastName: user.lastname,
+        _userId: user._id,
+        role: user.role,
+      });
     } else {
       return response.status(400).json({
         errorType: "unknown-error",
@@ -41,30 +47,32 @@ const login = async (request, response) => {
     }
   } catch (error) {
     console.log(error);
-    response.status(400).json(error);
+    response.status(500).json(error);
   }
 };
+
 const register = async (req, res) => {
-  
   try {
-    const { email, password } = req.body;
-    // Kontrollera om användarens e-postadress redan finns i databasen
-    const existingUser = await User.findOne({ email: email });
+    const { email, password, firstname, lastname } = req.body;
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    // Skapa en ny användare och spara den i databasen
+    const hashedPassword = await bcrypt.hash(password, 12);
     const newUser = new User({
-      email: req.body.email,
-      password: req.body.password,
+      email,
+      password: hashedPassword,
+      firstname,
+      lastname,
       role: "user",
     });
     await newUser.save();
 
     const token = jwt.sign(
-      { uid: req.body.email },
+      { uid: newUser.email },
       AuthenticationService.getJwtSecret(),
+      { expiresIn: '30d' }
     );
     return res.status(200).json({
       success: true,
@@ -72,8 +80,8 @@ const register = async (req, res) => {
       tid: token,
       uid: newUser.email,
       user: newUser,
-      firstName: newUser.firstName,
-      lastName: newUser.lastName,
+      firstName: newUser.firstname,
+      lastName: newUser.lastname,
       _userId: newUser._id,
       role: newUser.role,
     });
